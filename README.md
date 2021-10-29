@@ -15,9 +15,13 @@ go install ./cmd/dropspy
 ## Usage
 
 ```bash
-Usage of ./dropspy:
+./dropspy: Report packet drops from Linux kernel DM_MON.
+./dropspy [flags] [pcap filter]
+ie: ./dropspy -hex -iface lo udp port 53
   -count uint
     	maximum drops to record
+  -hex
+    	print hex dumps of matching packets
   -hw
     	record hardware drops (default true)
   -iface value
