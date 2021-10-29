@@ -44,6 +44,8 @@ func TestWatch(t *testing.T) {
 		t.Fatalf("init: %s", err)
 	}
 
+	s.Stop(true, true)
+
 	err = s.Start(true, false)
 	if err != nil {
 		t.Fatalf("start: %s", err)
@@ -53,27 +55,12 @@ func TestWatch(t *testing.T) {
 		s.Stop(true, true)
 	}()
 
-	err = s.conn.JoinGroup(GRP_ALERT)
-	if err != nil {
-		t.Fatalf("join: %s", err)
-	}
-
 	deadline := time.Now().Add(5 * time.Second)
 
-	for {
-		s.conn.SetReadDeadline(deadline)
-		ms, _, err := s.conn.Receive()
-		if err != nil {
-			t.Fatalf("recv: %s", err)
-		}
-
-		for _, m := range ms {
-			t.Logf("%d\n%s", m.Header.Command, hex.Dump(m.Data))
-			alert, err := decodeAlert(m.Data)
-			if err != nil {
-				t.Fatalf("decode: %s", err)
-			}
-			t.Logf("%+v", alert)
-		}
+	err = s.ReadUntil(deadline, func(pa PacketAlert) {
+		t.Logf("drop at %s:%016x\n%s", pa.Symbol(), pa.PC(), hex.Dump(pa.IPPacket()))
+	})
+	if err != nil {
+		t.Fatalf("readuntil: %s", err)
 	}
 }
