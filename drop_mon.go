@@ -319,6 +319,7 @@ func (s *Session) setPacketMode() error {
 	return nil
 }
 
+// PacketAlertFunc returns false if we should stop reading drops now.
 type PacketAlertFunc func(PacketAlert) bool
 
 // ReadUntil reads packet alerts until the deadline has elapsed, calling
@@ -360,12 +361,13 @@ func (s *Session) ReadUntil(deadline time.Time, f PacketAlertFunc) error {
 	return nil
 }
 
-// PacketAlert wraps the attributes parsed from a CMD_ALERT message
-// read from
+// PacketAlert wraps the Netlink attributes parsed from a CMD_ALERT message
 type PacketAlert struct {
 	attrs map[int]interface{}
 }
 
+// PacketAlertFromRaw creates a PacketAlert from the raw bytes of a CMD_ALERT
+// message.
 func PacketAlertFromRaw(raw []byte) (PacketAlert, error) {
 	attrs, err := decodeAlert(raw)
 	if err != nil {
@@ -377,6 +379,8 @@ func PacketAlertFromRaw(raw []byte) (PacketAlert, error) {
 	}, nil
 }
 
+// Packet returns the (truncated) raw bytes of a dropped packet, starting
+// from the link layer header (which is ethernet-y?).
 func (pa *PacketAlert) Packet() []byte {
 	payload, ok := pa.attrs[ATTR_PAYLOAD]
 	if !ok {
@@ -386,6 +390,8 @@ func (pa *PacketAlert) Packet() []byte {
 	return payload.([]byte)
 }
 
+// L3Packet returns the (truncated) raw bytes of a dropped packet, skipping
+// the link layer header (ie: starting at the IP header of an IP packet)
 func (pa *PacketAlert) L3Packet() []byte {
 	packet := pa.Packet()
 	if len(packet) <= 14 {
@@ -395,6 +401,7 @@ func (pa *PacketAlert) L3Packet() []byte {
 	return packet[14:]
 }
 
+// Symbol returns the kernel function where this drop occurred, when available.
 func (pa *PacketAlert) Symbol() string {
 	sym, ok := pa.attrs[ATTR_SYMBOL]
 	if !ok {
@@ -404,6 +411,8 @@ func (pa *PacketAlert) Symbol() string {
 	return sym.(string)
 }
 
+// PC returns $RIP of the CPU when the drop occurred, for later resolution as a
+// symbol.
 func (pa *PacketAlert) PC() uint64 {
 	pc, ok := pa.attrs[ATTR_PC]
 	if !ok {
@@ -413,6 +422,7 @@ func (pa *PacketAlert) PC() uint64 {
 	return pc.(uint64)
 }
 
+// Proto returns the layer 3 protocol of the dropped packet.
 func (pa *PacketAlert) Proto() uint16 {
 	proto, ok := pa.attrs[ATTR_PROTO]
 	if !ok {
@@ -422,14 +432,18 @@ func (pa *PacketAlert) Proto() uint16 {
 	return proto.(uint16)
 }
 
+// Is4 is true if the dropped packet is an IPv4 packet.
 func (pa *PacketAlert) Is4() bool {
 	return pa.Proto() == 0x0800
 }
 
+// Is16 is true if the dropped packet is an IPv6 packet.
 func (pa *PacketAlert) Is16() bool {
 	return pa.Proto() == 0x86DD
 }
 
+// Length returns the original, non-truncated length of the dropped
+// packet.
 func (pa *PacketAlert) Length() uint32 {
 	l, ok := pa.attrs[ATTR_ORIG_LEN]
 	if !ok {
@@ -439,6 +453,7 @@ func (pa *PacketAlert) Length() uint32 {
 	return l.(uint32)
 }
 
+// Link returns the interface index on which the packet was dropped
 func (pa *PacketAlert) Link() uint32 {
 	l, ok := pa.attrs[ATTR_IN_PORT]
 	if !ok {

@@ -6,6 +6,7 @@ import (
 	"github.com/jsimonetti/rtnetlink"
 )
 
+// LinkList returns a map from interface index to interface name
 func LinkList() (map[uint32]string, error) {
 	conn, err := rtnetlink.Dial(nil)
 	if err != nil {
