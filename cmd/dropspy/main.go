@@ -197,14 +197,17 @@ func main() {
 		deadline = time.Now().Add(dur)
 	}
 
-	err = session.ReadUntil(deadline, func(pa dropspy.PacketAlert) {
-		if filter.Match(&pa) {
-			log.Printf("drop on iface:%s at %s:%016x\n%s", links[pa.Link()], pa.Symbol(), pa.PC(), hex.Dump(pa.L3Packet()))
+	for {
+		err = session.ReadUntil(deadline, func(pa dropspy.PacketAlert) {
+			if filter.Match(&pa) {
+				log.Printf("drop on iface:%s at %s:%016x\n%s", links[pa.Link()], pa.Symbol(), pa.PC(), hex.Dump(pa.L3Packet()))
+			}
+		})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "read: %s\n", err)
+			time.Sleep(250 * time.Millisecond)
+		} else {
+			return
 		}
-	})
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "read: %s\n", err)
-		os.Exit(1)
 	}
-
 }
