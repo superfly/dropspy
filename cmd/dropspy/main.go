@@ -116,6 +116,13 @@ func main() {
 	flag.BoolVar(&sw, "sw", true, "record software drops")
 	flag.BoolVar(&printHex, "hex", false, "print hex dumps of matching packets")
 
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "%s: Report packet drops from Linux kernel DM_MON.\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "%s [flags] [pcap filter]\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "ie: %s -hex -iface lo udp port 53\n", os.Args[0])
+		flag.PrintDefaults()
+	}
+
 	flag.Parse()
 
 	pcapExpr := strings.Join(flag.Args(), " ")
