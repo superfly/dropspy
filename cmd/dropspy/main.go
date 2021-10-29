@@ -11,6 +11,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/gopacket"
+	"github.com/google/gopacket/layers"
+	"github.com/google/gopacket/pcap"
 	"github.com/superfly/dropspy"
 )
 
@@ -18,6 +21,7 @@ type filter struct {
 	ifaces     map[uint32]bool
 	min, max   uint
 	xSym, iSym []*regexp.Regexp
+	bpf        *pcap.BPF
 }
 
 func (f *filter) Match(pa *dropspy.PacketAlert) bool {
@@ -55,6 +59,19 @@ func (f *filter) Match(pa *dropspy.PacketAlert) bool {
 		}
 	}
 
+	if f.bpf != nil {
+		packet := pa.Packet()
+
+		ci := gopacket.CaptureInfo{
+			CaptureLength: len(packet),
+			Length:        int(plen),
+		}
+
+		if !f.bpf.Matches(ci, packet) {
+			return false
+		}
+	}
+
 	return true
 }
 
@@ -69,18 +86,22 @@ func (sa *sliceArg) Set(arg string) error {
 	return nil
 }
 
+var (
+	packetModeTruncation int = 100
+)
+
 func main() {
 	var (
-		ifaces sliceArg
-		xsyms  sliceArg
-		isyms  sliceArg
+		ifaces   sliceArg
+		xsyms    sliceArg
+		isyms    sliceArg
+		maxDrops uint64
+		timeout  string
+		hw, sw   bool
 
 		filter filter
 
-		maxDrops uint64
-		timeout  string
-
-		hw, sw bool
+		err error
 	)
 
 	flag.Var(&ifaces, "iface", "show only drops on this interface (may be repeated)")
@@ -94,6 +115,15 @@ func main() {
 	flag.BoolVar(&sw, "sw", true, "record software drops")
 
 	flag.Parse()
+
+	pcapExpr := strings.Join(flag.Args(), " ")
+	if pcapExpr != "" {
+		filter.bpf, err = pcap.NewBPF(layers.LinkTypeEthernet, packetModeTruncation, pcapExpr)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "pcap expression: %s\n", err)
+			os.Exit(1)
+		}
+	}
 
 	if len([]string(xsyms)) > 0 && len([]string(isyms)) > 0 {
 		fmt.Fprintf(os.Stderr, "-xsym and -isym are mutually exclusive\n")
