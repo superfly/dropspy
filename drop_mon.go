@@ -224,6 +224,7 @@ func (s *Session) Start(sw, hw bool) error {
 // the GRP_ALERT multicast group for the socket.
 func (s *Session) Stop(sw, hw bool) error {
 	_ = s.conn.LeaveGroup(GRP_ALERT)
+
 	// BUG(tqbf): log this or something, but if we ask this code to
 	// Stop(), I really want it to try to stop. Most of the time, we
 	// leave the multicast group simply by closing the connection.
@@ -236,14 +237,9 @@ func (s *Session) Stop(sw, hw bool) error {
 		return fmt.Errorf("encode: %w", err)
 	}
 
-	err = s.req(CMD_STOP, raw, true)
+	err = s.req(CMD_STOP, raw, false)
 	if err != nil {
 		return fmt.Errorf("req: %w", err)
-	}
-
-	_, _, err = s.conn.Receive()
-	if err != nil {
-		return fmt.Errorf("req ack: %w", err)
 	}
 
 	return nil
@@ -326,13 +322,15 @@ func (s *Session) setPacketMode() error {
 type PacketAlertFunc func(PacketAlert)
 
 // ReadUntil reads packet alerts until the deadline has elapsed, calling
-// `f` on each.
+// `f` on each; read indefinitely if deadline is zero.
 func (s *Session) ReadUntil(deadline time.Time, f PacketAlertFunc) error {
 	// BUG(tqbf): voodoo; i have no idea if this matters
 	s.conn.SetReadBuffer(4096)
 
 	for {
-		s.conn.SetReadDeadline(deadline)
+		if !deadline.IsZero() {
+			s.conn.SetReadDeadline(deadline)
+		}
 		ms, _, err := s.conn.Receive()
 		if err != nil {
 			if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
@@ -428,4 +426,28 @@ func (pa *PacketAlert) Is4() bool {
 
 func (pa *PacketAlert) Is16() bool {
 	return pa.Proto() == 0x86DD
+}
+
+func (pa *PacketAlert) Length() uint32 {
+	l, ok := pa.attrs[ATTR_ORIG_LEN]
+	if !ok {
+		return 0
+	}
+
+	return l.(uint32)
+}
+
+func (pa *PacketAlert) Link() uint32 {
+	l, ok := pa.attrs[ATTR_IN_PORT]
+	if !ok {
+		return 0
+	}
+
+	a := l.(map[int]interface{})
+	lidx, ok := a[0]
+	if !ok {
+		return 0
+	}
+
+	return lidx.(uint32)
 }
