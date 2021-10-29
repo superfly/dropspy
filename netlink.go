@@ -386,16 +386,9 @@ func (pa *PacketAlert) Packet() []byte {
 	return payload.([]byte)
 }
 
-func (pa *PacketAlert) IPPacket() []byte {
+func (pa *PacketAlert) L3Packet() []byte {
 	packet := pa.Packet()
 	if len(packet) <= 14 {
-		println("ded")
-		return nil
-	}
-
-	// BUG(tqbf): obvs this is the wrong lookup, parse
-	// the proto or whatever, but for now...
-	if packet[14] != 0x45 {
 		return nil
 	}
 
@@ -418,4 +411,21 @@ func (pa *PacketAlert) PC() uint64 {
 	}
 
 	return pc.(uint64)
+}
+
+func (pa *PacketAlert) Proto() uint16 {
+	proto, ok := pa.attrs[ATTR_PROTO]
+	if !ok {
+		return 0
+	}
+
+	return proto.(uint16)
+}
+
+func (pa *PacketAlert) Is4() bool {
+	return pa.Proto() == 0x0800
+}
+
+func (pa *PacketAlert) Is16() bool {
+	return pa.Proto() == 0x86DD
 }
