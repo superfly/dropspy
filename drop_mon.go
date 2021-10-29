@@ -134,6 +134,10 @@ func decodeConfig(raw []byte) (map[int]interface{}, error) {
 		}
 	}
 
+	if err := dec.Err(); err != nil {
+		return nil, err
+	}
+
 	return ret, nil
 }
 
@@ -275,7 +279,7 @@ func decodeAlert(raw []byte) (map[int]interface{}, error) {
 			})
 			ret[ATTR_IN_PORT] = a
 		case ATTR_TIMESTAMP:
-			ret[ATTR_TIMESTAMP] = dec.Uint64
+			ret[ATTR_TIMESTAMP] = dec.Uint64()
 		case ATTR_PROTO:
 			ret[ATTR_PROTO] = dec.Uint16()
 		case ATTR_PAYLOAD:
@@ -290,6 +294,10 @@ func decodeAlert(raw []byte) (map[int]interface{}, error) {
 		case ATTR_HW_ENTRY:
 		case ATTR_HW_TRAP_COUNT:
 		}
+	}
+
+	if err := dec.Err(); err != nil {
+		return nil, err
 	}
 
 	return ret, nil
@@ -357,8 +365,6 @@ func (s *Session) ReadUntil(deadline time.Time, f PacketAlertFunc) error {
 			}
 		}
 	}
-
-	return nil
 }
 
 // PacketAlert wraps the Netlink attributes parsed from a CMD_ALERT message
