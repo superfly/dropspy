@@ -57,10 +57,12 @@ func TestWatch(t *testing.T) {
 
 	deadline := time.Now().Add(15 * time.Second)
 
-	err = s.ReadUntil(deadline, func(pa PacketAlert) {
+	err = s.ReadUntil(deadline, func(pa PacketAlert) bool {
 		t.Logf("drop at %s:%016x\n%s", pa.Symbol(), pa.PC(), hex.Dump(pa.L3Packet()))
 
 		t.Logf("%+v", pa.attrs[ATTR_IN_PORT])
+
+		return true
 	})
 	if err != nil {
 		t.Fatalf("readuntil: %s", err)

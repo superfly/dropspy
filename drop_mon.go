@@ -319,7 +319,7 @@ func (s *Session) setPacketMode() error {
 	return nil
 }
 
-type PacketAlertFunc func(PacketAlert)
+type PacketAlertFunc func(PacketAlert) bool
 
 // ReadUntil reads packet alerts until the deadline has elapsed, calling
 // `f` on each; read indefinitely if deadline is zero.
@@ -351,7 +351,9 @@ func (s *Session) ReadUntil(deadline time.Time, f PacketAlertFunc) error {
 				return fmt.Errorf("parse alert packet: %w", err)
 			}
 
-			f(pa)
+			if !f(pa) {
+				return nil
+			}
 		}
 	}
 

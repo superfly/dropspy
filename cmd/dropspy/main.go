@@ -92,6 +92,7 @@ var (
 
 func main() {
 	var (
+		printHex bool
 		ifaces   sliceArg
 		xsyms    sliceArg
 		isyms    sliceArg
@@ -113,6 +114,7 @@ func main() {
 	flag.StringVar(&timeout, "timeout", "", "duration to capture for (300ms, 2h15m, &c)")
 	flag.BoolVar(&hw, "hw", true, "record hardware drops")
 	flag.BoolVar(&sw, "sw", true, "record software drops")
+	flag.BoolVar(&printHex, "hex", false, "print hex dumps of matching packets")
 
 	flag.Parse()
 
@@ -207,6 +209,10 @@ func main() {
 		os.Exit(1)
 	}()
 
+	defer func() {
+		session.Stop(true, true)
+	}()
+
 	session.Stop(true, true)
 
 	err = session.Start(sw, hw)
@@ -227,11 +233,25 @@ func main() {
 		deadline = time.Now().Add(dur)
 	}
 
+	dropCount := uint64(0)
+
 	for {
-		err = session.ReadUntil(deadline, func(pa dropspy.PacketAlert) {
+		err = session.ReadUntil(deadline, func(pa dropspy.PacketAlert) bool {
 			if filter.Match(&pa) {
-				log.Printf("drop on iface:%s at %s:%016x\n%s", links[pa.Link()], pa.Symbol(), pa.PC(), hex.Dump(pa.L3Packet()))
+				dropCount += 1
+
+				log.Printf("drop on iface:%s at %s:%016x", links[pa.Link()], pa.Symbol(), pa.PC())
+				if printHex {
+					fmt.Println(hex.Dump(pa.L3Packet()))
+				}
+
+				if maxDrops != 0 && dropCount == maxDrops {
+					fmt.Fprintf(os.Stderr, "maximum drops reached, exiting\n")
+					return false
+				}
 			}
+
+			return true
 		})
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "read: %s\n", err)
