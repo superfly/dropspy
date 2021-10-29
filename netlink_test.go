@@ -59,8 +59,19 @@ func TestWatch(t *testing.T) {
 
 	err = s.ReadUntil(deadline, func(pa PacketAlert) {
 		t.Logf("drop at %s:%016x\n%s", pa.Symbol(), pa.PC(), hex.Dump(pa.L3Packet()))
+
+		t.Logf("%+v", pa.attrs[ATTR_IN_PORT])
 	})
 	if err != nil {
 		t.Fatalf("readuntil: %s", err)
 	}
+}
+
+func TestLinks(t *testing.T) {
+	links, err := LinkList()
+	if err != nil {
+		t.Fatalf("links: %s", err)
+	}
+
+	t.Logf("%+v", links)
 }
